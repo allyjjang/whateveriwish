@@ -3,7 +3,7 @@
 <head>
     <title>Korean TTS</title>
     <style>
-        body {
+         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
@@ -60,8 +60,8 @@
     <input type="range" id="rate" name="rate" min="0.5" max="5" step="0.1"><br><br>
     <label for="pitch"><strong>목소리 톤 조절 :</strong></label>
     <input type="range" id="pitch" name="pitch" min="0" max="2" step="0.1"><br><br>
-    <script src="https://code.responsivevoice.org/responsivevoice.js?key=m5TjGkfq"></script>
     <script>
+        let synth = window.speechSynthesis;
         let textDiv = document.querySelector('#text');
         let fileInput = document.querySelector('#file-input');
         let inputArea = document.querySelector('#input');
@@ -71,13 +71,14 @@
         let rateControl = document.querySelector('#rate');
         let pitchControl = document.querySelector('#pitch');
         let voice;
+        let utterance;
         let sentences = [];
-
+        
         function populateVoiceList() {
-            voices = speechSynthesis.getVoices();
-            voice = voices.find(function(voice) { return voice.lang === 'ko-KR'; });
+            voices = synth.getVoices();
+            voice = voices.filter(function(voice) { return voice.lang === 'ko-KR'; })[0];
         }
-
+        
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = populateVoiceList;
@@ -86,72 +87,113 @@
         rateControl.value = localStorage.getItem('rate') || 1;
         pitchControl.value = localStorage.getItem('pitch') || 1;
 
+        
         playButton.onclick = function(event) {
-            speechSynthesis.cancel();
-
+            synth.cancel();
+            
             textDiv.innerHTML = '';
-
+            
             sentences = inputArea.value.split('.').filter(sentence => sentence.trim().length > 0);
-
+            
             for (let i = 0; i < sentences.length; i++) {
                 let sentenceSpan = document.createElement('span');
                 sentenceSpan.textContent = sentences[i] + '.';
                 sentenceSpan.onclick = function(event) {
-                    if (speechSynthesis.speaking) {
-                        speechSynthesis.cancel();
+                    if (synth.speaking) {
+                        synth.cancel();
                         let startSentenceIndex = Array.prototype.indexOf.call(textDiv.children, event.target);
                         let textToSpeak = '';
                         for (let j = startSentenceIndex; j < textDiv.children.length; j += 2) {
                             textToSpeak += textDiv.children[j].textContent + ' ';
                         }
-                        responsiveVoice.speak(textToSpeak, 'Korean Female', {
-                            rate: rateControl.value,
-                            pitch: pitchControl.value
-                        });
+                        utterance = new SpeechSynthesisUtterance(textToSpeak);
+                        utterance.voice = voice;
+                        utterance.rate = rateControl.value;
+                        utterance.pitch = pitchControl.value;
+                        utterance.onboundary = function(event) {
+                            if (event.name === 'sentence') {
+                                for (let i = startSentenceIndex; i < textDiv.children.length; i++) {
+                                    textDiv.children[i].classList.remove('highlight');
+                                }
+                                let sentenceIndex = event.charIndex + startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1;;
+                                for (let i = startSentenceIndex / 2; i < sentences.length; i++) {
+                                    if (sentenceIndex === startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1) {
+                                        textDiv.children[i * 2].classList.add('highlight');
+                                        textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
+                                    } else {
+                                        sentenceIndex -= sentences[i].length + 1;
+                                        if (sentenceIndex <= startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1) {
+                                            textDiv.children[i * 2].classList.add('highlight');
+                                            textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                        synth.speak(utterance);
                     }
                 };
                 textDiv.appendChild(sentenceSpan);
                 textDiv.appendChild(document.createElement('br'));
             }
-
-            responsiveVoice.speak(inputArea.value, 'Korean Female', {
-                rate: rateControl.value,
-                pitch: pitchControl.value
-            });
-        };
-
+            
+            utterance = new SpeechSynthesisUtterance(inputArea.value);
+            utterance.voice = voice;
+            utterance.rate = rateControl.value;
+            utterance.pitch = pitchControl.value;
+            utterance.onboundary = function(event) {
+                if (event.name === 'sentence') {
+                    for (let i = 0; i < textDiv.children.length; i++) {
+                        textDiv.children[i].classList.remove('highlight');
+                    }
+                    let sentenceIndex = event.charIndex;
+                    for (let i = 0; i < sentences.length; i++) {
+                        if (sentenceIndex === 0) {
+                            textDiv.children[i * 2].classList.add('highlight');
+                            textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
+                        } else {
+                            sentenceIndex -= sentences[i].length + 1;
+                            if (sentenceIndex <= 0) {
+                                textDiv.children[i * 2].classList.add('highlight');
+                                textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
+                                break;
+                            }
+                        }
+                    }
+                }
+            };
+            synth.speak(utterance);
+        }
+        
         pauseButton.onclick = function(event) {
-            responsiveVoice.pause();
+            synth.pause();
             for (let i = 0; i < textDiv.children.length; i++) {
                 textDiv.children[i].classList.remove('highlight');
             }
-        };
+        }
 
         resumeButton.onclick = function(event) {
-            responsiveVoice.resume();
-        };
-
+            synth.resume();
+        }
+        
         rateControl.oninput = function(event) {
-            if (responsiveVoice.isPlaying()) {
-                responsiveVoice.cancel();
-                responsiveVoice.speak(inputArea.value, 'Korean Female', {
-                    rate: rateControl.value,
-                    pitch: pitchControl.value
-                });
+            if (synth.speaking) {
+                synth.cancel();
+                utterance.rate = rateControl.value;
+                synth.speak(utterance);
             }
             localStorage.setItem('rate', rateControl.value);
-        };
+        }
 
         pitchControl.oninput = function(event) {
-            if (responsiveVoice.isPlaying()) {
-                responsiveVoice.cancel();
-                responsiveVoice.speak(inputArea.value, 'Korean Female', {
-                    rate: rateControl.value,
-                    pitch: pitchControl.value
-                });
+            if (synth.speaking) {
+                synth.cancel();
+                utterance.pitch = pitchControl.value;
+                synth.speak(utterance);
             }
             localStorage.setItem('pitch', pitchControl.value);
-        };
+        }
 
         fileInput.onchange = function(event) {
             let file = fileInput.files[0];
