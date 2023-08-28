@@ -1,4 +1,3 @@
-<h1> 앨리의 취미공간 </h1>
 <!DOCTYPE html>
 <html>
 <head>
@@ -76,7 +75,7 @@
 
         function populateVoiceList() {
             voices = speechSynthesis.getVoices();
-            voice = voices.filter(function(voice) { return voice.lang === 'ko-KR'; })[0];
+            voice = voices.find(function(voice) { return voice.lang === 'ko-KR'; });
         }
 
         populateVoiceList();
@@ -88,7 +87,7 @@
         pitchControl.value = localStorage.getItem('pitch') || 1;
 
         playButton.onclick = function(event) {
-            synth.cancel();
+            speechSynthesis.cancel();
 
             textDiv.innerHTML = '';
 
@@ -98,8 +97,8 @@
                 let sentenceSpan = document.createElement('span');
                 sentenceSpan.textContent = sentences[i] + '.';
                 sentenceSpan.onclick = function(event) {
-                    if (synth.speaking) {
-                        synth.cancel();
+                    if (speechSynthesis.speaking) {
+                        speechSynthesis.cancel();
                         let startSentenceIndex = Array.prototype.indexOf.call(textDiv.children, event.target);
                         let textToSpeak = '';
                         for (let j = startSentenceIndex; j < textDiv.children.length; j += 2) {
@@ -126,11 +125,11 @@
             for (let i = 0; i < textDiv.children.length; i++) {
                 textDiv.children[i].classList.remove('highlight');
             }
-        }
+        };
 
         resumeButton.onclick = function(event) {
             responsiveVoice.resume();
-        }
+        };
 
         rateControl.oninput = function(event) {
             if (responsiveVoice.isPlaying()) {
@@ -141,7 +140,7 @@
                 });
             }
             localStorage.setItem('rate', rateControl.value);
-        }
+        };
 
         pitchControl.oninput = function(event) {
             if (responsiveVoice.isPlaying()) {
@@ -152,7 +151,7 @@
                 });
             }
             localStorage.setItem('pitch', pitchControl.value);
-        }
+        };
 
         fileInput.onchange = function(event) {
             let file = fileInput.files[0];
