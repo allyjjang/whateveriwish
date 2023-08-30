@@ -1,39 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Korean TTS</title>
+    <title>Responsive Voice TTS</title>
+    <script src="https://code.responsivevoice.org/responsivevoice.js?key=m5TjGkfq"></script>
     <style>
-         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            margin: 0;
-            margin-bottom: 20px;
-        }
-        #text {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 20px;
-            max-height: calc(1.2em * 10);
-            overflow-y: auto;
-        }
-        #input {
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 20px;
-        }
         button {
-            background-color: #4CAF50;
             color: white;
             padding: 12px 20px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin-right: 10px;
+            font-size: 16px;
+            font-weight: bold;
         }
-        button:hover {
+        #start {
+            background-color: #4CAF50;
+        }
+        #start:hover {
             background-color: #3e8e41;
         }
         #pause {
@@ -42,167 +25,172 @@
         #pause:hover {
             background-color: #d32f2f;
         }
-        .highlight {
-            background-color: yellow;
+        #resume {
+            background-color: #2196F3;
+        }
+        #resume:hover {
+            background-color: #0d8bf2;
+        }
+          #reset {
+            background-color: #FFA500;
+        }
+        #reset:hover {
+            background-color: #FF8C00;
+        }
+        input[type=file] {
+            display: none;
+        }
+        label[for=fileInput] {
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #808080;
+            font-weight: bold;
+        }
+        label[for=fileInput]:hover {
+            background-color: #696969;
+        }
+        h1 {
+            font-weight: bold;
+        }
+        #text {
+            height: 100px;
+            overflow: auto;
+            border: 2px solid gray;
+            padding: 10px;
+            background-color: #f1f1f1;
         }
     </style>
 </head>
 <body>
     <h1>책 읽어주기</h1>
-    <div id="text"></div><br><br>
-    <label for="file-input"><strong>읽기 파일 추가 (Text 파일만 지원) :</strong></label>
-    <input type="file" id="file-input" accept=".txt"><br><br>
-    <textarea id="input" rows="5" cols="50"></textarea><br><br>
-    <button id="play"><strong>읽기 시작</strong></button>
-    <button id="pause"><strong>멈춤</strong></button>
-    <button id="resume"><strong>다시 읽기</strong></button><br><br>
-    <label for="rate"><strong>읽기 속도 조절 :</strong></label>
-    <input type="range" id="rate" name="rate" min="0.5" max="5" step="0.1"><br><br>
-    <label for="pitch"><strong>목소리 톤 조절 :</strong></label>
-    <input type="range" id="pitch" name="pitch" min="0" max="2" step="0.1"><br><br>
+     <strong>읽기 파일 추가 (txt 파일만 가능) </strong>
+     <input type="file" id="fileInput"><label for="fileInput">파일 선택</label> <button id="reset">파일 초기화</button><br><br>
+    <div id="text"></div>
+<br>
+<button id="start">읽기 시작</button>
+    <button id="pause">멈춤</button>
+    <button id="resume">다시 읽기</button><br><br>
+    <strong>읽기 속도 조절:</strong><input type="range" id="rate" min="0.5" max="2" step="0.1" value="1"><br><br>
+    <strong>목소리 톤 조절:</strong><input type="range" id="pitch" min="0" max="2" step="0.1" value="1"><br><br>
+   
+
     <script>
-        let synth = window.speechSynthesis;
-        let textDiv = document.querySelector('#text');
-        let fileInput = document.querySelector('#file-input');
-        let inputArea = document.querySelector('#input');
-        let playButton = document.querySelector('#play');
-        let pauseButton = document.querySelector('#pause');
-        let resumeButton = document.querySelector('#resume');
-        let rateControl = document.querySelector('#rate');
-        let pitchControl = document.querySelector('#pitch');
-        let voice;
-        let utterance;
-        let sentences = [];
-        
-        function populateVoiceList() {
-            voices = synth.getVoices();
-            voice = voices.filter(function(voice) { return voice.lang === 'ko-KR'; })[0];
-        }
-        
-        populateVoiceList();
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = populateVoiceList;
-        }
+         let text="";
+         let sentences=[];
+         let currentSentence=0;
+         let paused=false;
+         let rate=1;
+         let pitch=1;
 
-        rateControl.value = localStorage.getItem('rate') || 1;
-        pitchControl.value = localStorage.getItem('pitch') || 1;
+         document.getElementById("start").onclick=function() {
+             responsiveVoice.cancel();
+             currentSentence=0;
+             paused=false;
+             speak();
+         }
 
-        
-        playButton.onclick = function(event) {
-            synth.cancel();
-            
-            textDiv.innerHTML = '';
-            
-            sentences = inputArea.value.split('.').filter(sentence => sentence.trim().length > 0);
-            
-            for (let i = 0; i < sentences.length; i++) {
-                let sentenceSpan = document.createElement('span');
-                sentenceSpan.textContent = sentences[i] + '.';
-                sentenceSpan.onclick = function(event) {
-                    if (synth.speaking) {
-                        synth.cancel();
-                        let startSentenceIndex = Array.prototype.indexOf.call(textDiv.children, event.target);
-                        let textToSpeak = '';
-                        for (let j = startSentenceIndex; j < textDiv.children.length; j += 2) {
-                            textToSpeak += textDiv.children[j].textContent + ' ';
-                        }
-                        utterance = new SpeechSynthesisUtterance(textToSpeak);
-                        utterance.voice = voice;
-                        utterance.rate = rateControl.value;
-                        utterance.pitch = pitchControl.value;
-                        utterance.onboundary = function(event) {
-                            if (event.name === 'sentence') {
-                                for (let i = startSentenceIndex; i < textDiv.children.length; i++) {
-                                    textDiv.children[i].classList.remove('highlight');
-                                }
-                                let sentenceIndex = event.charIndex + startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1;;
-                                for (let i = startSentenceIndex / 2; i < sentences.length; i++) {
-                                    if (sentenceIndex === startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1) {
-                                        textDiv.children[i * 2].classList.add('highlight');
-                                        textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
-                                    } else {
-                                        sentenceIndex -= sentences[i].length + 1;
-                                        if (sentenceIndex <= startSentenceIndex * sentences[0].length / 2 + startSentenceIndex / 2 + 1) {
-                                            textDiv.children[i * 2].classList.add('highlight');
-                                            textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        };
-                        synth.speak(utterance);
-                    }
-                };
-                textDiv.appendChild(sentenceSpan);
-                textDiv.appendChild(document.createElement('br'));
-            }
-            
-            utterance = new SpeechSynthesisUtterance(inputArea.value);
-            utterance.voice = voice;
-            utterance.rate = rateControl.value;
-            utterance.pitch = pitchControl.value;
-            utterance.onboundary = function(event) {
-                if (event.name === 'sentence') {
-                    for (let i = 0; i < textDiv.children.length; i++) {
-                        textDiv.children[i].classList.remove('highlight');
-                    }
-                    let sentenceIndex = event.charIndex;
-                    for (let i = 0; i < sentences.length; i++) {
-                        if (sentenceIndex === 0) {
-                            textDiv.children[i * 2].classList.add('highlight');
-                            textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
-                        } else {
-                            sentenceIndex -= sentences[i].length + 1;
-                            if (sentenceIndex <= 0) {
-                                textDiv.children[i * 2].classList.add('highlight');
-                                textDiv.children[i * 2].scrollIntoView({behavior: 'smooth', block: 'center'});
-                                break;
-                            }
-                        }
-                    }
-                }
-            };
-            synth.speak(utterance);
-        }
-        
-        pauseButton.onclick = function(event) {
-            synth.pause();
-            for (let i = 0; i < textDiv.children.length; i++) {
-                textDiv.children[i].classList.remove('highlight');
-            }
-        }
+         document.getElementById("pause").onclick=function() {
+             responsiveVoice.pause();
+             paused=true;
+         }
 
-        resumeButton.onclick = function(event) {
-            synth.resume();
-        }
-        
-        rateControl.oninput = function(event) {
-            if (synth.speaking) {
-                synth.cancel();
-                utterance.rate = rateControl.value;
-                synth.speak(utterance);
-            }
-            localStorage.setItem('rate', rateControl.value);
-        }
+         document.getElementById("resume").onclick=function() {
+             responsiveVoice.resume();
+             paused=false;
+         }
 
-        pitchControl.oninput = function(event) {
-            if (synth.speaking) {
-                synth.cancel();
-                utterance.pitch = pitchControl.value;
-                synth.speak(utterance);
-            }
-            localStorage.setItem('pitch', pitchControl.value);
-        }
+         document.getElementById("rate").onchange=function() {
+             rate=this.value;
+             if (responsiveVoice.isPlaying()) {
+                 responsiveVoice.cancel();
+                 speak();
+             }
+         }
 
-        fileInput.onchange = function(event) {
-            let file = fileInput.files[0];
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                inputArea.value = event.target.result;
-            };
-            reader.readAsText(file);
-        };
+         document.getElementById("pitch").onchange=function() {
+             pitch=this.value;
+             if (responsiveVoice.isPlaying()) {
+                 responsiveVoice.cancel();
+                 speak();
+             }
+         }
+
+         document.getElementById("fileInput").onchange=function() {
+             let file=this.files[0];
+             let reader=new FileReader();
+             reader.onload=function(e) {
+                 text=e.target.result;
+                 sentences=text.split(".");
+                 displayText();
+                 addClickEvents();
+             }
+             reader.readAsText(file);
+         }
+
+          document.getElementById("reset").onclick=function() {
+             text="";
+             sentences=[];
+             currentSentence=0;
+             paused=false;
+
+             responsiveVoice.cancel();
+
+             let textDiv=document.getElementById("text");
+             textDiv.innerHTML="";
+         }
+
+            function speak() {
+             if (currentSentence >= sentences.length) return;
+             let sentence=sentences[currentSentence];
+             responsiveVoice.speak(sentence, "Korean Female", {rate: rate, pitch:pitch, onend:function() {
+                 if (!paused) {
+                     currentSentence++;
+                     speak();
+                     highlightText();
+                 }
+             }});
+         }
+
+         function displayText() {
+             let textDiv=document.getElementById("text");
+             textDiv.innerHTML="";
+             for (let i=0; i<sentences.length; i++) {
+                 let sentenceSpan=document.createElement("span");
+                 sentenceSpan.id ="sentence-" + i;
+                 sentenceSpan.innerText=sentences[i] + ".";
+                 textDiv.appendChild(sentenceSpan);
+                 textDiv.appendChild(document.createElement("br"));
+             }
+         }
+
+         function addClickEvents() {
+             for (let i=0; i<sentences.length; i++) {
+                 document.getElementById("sentence-" + i).onclick=function() {
+                     currentSentence=i;
+                     responsiveVoice.cancel();
+                     speak();
+                     highlightText();
+                 }
+             }
+         }
+
+         function highlightText() {
+             for (let i=0; i<sentences.length; i++) {
+                 document.getElementById("sentence-" + i).style.backgroundColor ="#f1f1f1";
+             }
+             
+             if (currentSentence > 0 && !paused) {
+                 let sentenceSpan=document.getElementById("sentence-" + currentSentence);
+                 sentenceSpan.style.backgroundColor ="#ADD8E6";
+                 sentenceSpan.scrollIntoView();
+             } else if (currentSentence > 0 && paused) {
+                 let sentenceSpanPaused=document.getElementById("sentence-" + (currentSentence-1));
+                 sentenceSpanPaused.style.backgroundColor ="#f1f1f1";
+             }
+         }
     </script>
 </body>
 </html>
+
